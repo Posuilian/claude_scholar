@@ -29,6 +29,28 @@ Shared rules for creating and updating CLAUDE.md files. Referenced by `/init-pro
 
 If subdirectories have their own CLAUDE.md, add a brief "Subdirectory Guide" section listing them.
 
+## Environment-Aware Commands
+
+<important>
+All commands in Quick Start and Common Tasks MUST include the correct environment prefix. Bare `python`, `pytest`, `pip` etc. will fail if the project uses a virtual environment manager.
+
+Detection priority and corresponding prefix:
+
+| Detected marker | Command prefix | Example |
+|---|---|---|
+| `uv.lock` or `[tool.uv]` in pyproject.toml | `uv run` | `uv run pytest`, `uv run python src/main.py` |
+| `poetry.lock` or `[tool.poetry]` | `poetry run` | `poetry run pytest` |
+| `Pipfile.lock` | `pipenv run` | `pipenv run pytest` |
+| `conda.yaml` / `environment.yml` | `conda run -n ENV` | `conda run -n myenv pytest` |
+| `pdm.lock` or `[tool.pdm]` | `pdm run` | `pdm run pytest` |
+| `.venv/` or `venv/` present | `source .venv/bin/activate &&` | `source .venv/bin/activate && pytest` |
+| `package.json` scripts | `npm run` / `pnpm` / `yarn` | `npm test`, `pnpm test` |
+| `Cargo.toml` | `cargo` | `cargo test` |
+| None of the above | bare commands | `python`, `pytest` |
+
+Apply this to EVERY command: test, build, lint, run, scripts. Never write bare `python` or `pytest` when a manager is detected.
+</important>
+
 ## Subdirectory CLAUDE.md Template (5 Sections)
 
 1. **Purpose** (3-5 lines) — role in the larger system

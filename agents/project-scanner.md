@@ -34,7 +34,18 @@ You are a project structure analyst. Your job is to deeply understand a codebase
    - Project name and description
    - Dependencies and frameworks (React, FastAPI, Express, Django, etc.)
    - Scripts/commands (test, build, lint, start)
-5. Check for monorepo markers: `lerna.json`, `pnpm-workspace.yaml`, `nx.json`, `turbo.json`, `rush.json`, Cargo workspace members, Go workspace
+5. **Detect environment manager** (critical for correct command prefixes):
+   - `uv.lock` or `[tool.uv]` in pyproject.toml → `uv run`
+   - `poetry.lock` or `[tool.poetry]` in pyproject.toml → `poetry run`
+   - `Pipfile.lock` → `pipenv run`
+   - `pdm.lock` or `[tool.pdm]` in pyproject.toml → `pdm run`
+   - `conda.yaml` / `environment.yml` → `conda run -n ENV`
+   - `.venv/` or `venv/` directory → `source .venv/bin/activate &&`
+   - `pnpm-lock.yaml` → `pnpm`, `yarn.lock` → `yarn`, `package-lock.json` → `npm`
+   - None → bare commands
+   - Store as `env_manager` and `command_prefix`
+   - **All commands in the output MUST be prefixed** — e.g., if uv detected, write `uv run pytest` not `pytest`
+6. Check for monorepo markers: `lerna.json`, `pnpm-workspace.yaml`, `nx.json`, `turbo.json`, `rush.json`, Cargo workspace members, Go workspace
 
 ## Phase 2 — Directory Analysis (3-5 turns)
 
@@ -79,13 +90,15 @@ Return your findings as a single JSON code block with this schema:
   "languages": ["python", "typescript"],
   "primary_language": "typescript",
   "frameworks": ["react", "express"],
-  "build_system": "npm | yarn | pnpm | cargo | go | make | gradle | maven | pip | poetry | none",
+  "build_system": "npm | yarn | pnpm | cargo | go | make | gradle | maven | pip | poetry | uv | none",
+  "env_manager": "uv | poetry | pipenv | pdm | conda | venv | npm | pnpm | yarn | cargo | none",
+  "command_prefix": "uv run | poetry run | pipenv run | pdm run | source .venv/bin/activate && | (empty for bare commands)",
   "commands": {
-    "install": "npm install",
-    "build": "npm run build",
-    "test": "npm test",
-    "lint": "npm run lint",
-    "start": "npm start",
+    "install": "uv sync",
+    "build": "uv run python -m build",
+    "test": "uv run pytest",
+    "lint": "uv run ruff check .",
+    "start": "uv run python src/main.py",
     "other": {}
   },
   "architecture_summary": "string — 2-3 sentence description of how the project is organized",
