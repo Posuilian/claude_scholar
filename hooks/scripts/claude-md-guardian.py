@@ -69,6 +69,69 @@ def has_git_changes(project_dir: str) -> bool:
         return True
 
 
+def get_changed_directories(project_dir: str) -> set[str]:
+    """Extract top-level directories with working tree changes from git status."""
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain", "--short"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return set()
+
+        dirs = set()
+        for line in result.stdout.strip().splitlines():
+            # git status --porcelain format: XY filename
+            # or XY old -> new (for renames)
+            entry = line[3:].strip()  # skip status chars + space
+            # Handle renames: "old -> new"
+            if " -> " in entry:
+                entry = entry.split(" -> ")[-1]
+            # Strip quotes from paths with special chars
+            if entry.startswith('"') and entry.endswith('"'):
+                entry = entry[1:-1]
+            # Extract top-level directory (or root "." for top-level files)
+            if "/" in entry:
+                top_dir = entry.split("/")[0]
+            else:
+                top_dir = "."
+            if not should_skip([top_dir]):
+                dirs.add(top_dir)
+        return dirs
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return set()
+
+
+def dirs_needing_doc_update(project_dir: Path, changed_dirs: set[str]) -> list[str]:
+    """Filter changed dirs to those that are actionable for CLAUDE.md updates."""
+    actionable = []
+    for d in sorted(changed_dirs):
+        if d == ".":
+            # Root-level file changes — check if root CLAUDE.md exists
+            if (project_dir / "CLAUDE.md").exists():
+                actionable.append("(root)")
+            continue
+
+        dir_path = project_dir / d
+        if not dir_path.is_dir():
+            continue
+
+        # Has existing CLAUDE.md → always report
+        if (dir_path / "CLAUDE.md").exists():
+            actionable.append(d)
+            continue
+
+        # No CLAUDE.md but significant source files → suggest
+        src_count = count_source_files(dir_path)
+        if src_count >= MIN_SOURCE_FILES_FOR_SUGGESTION:
+            actionable.append(f"{d} (no CLAUDE.md, {src_count}+ src files)")
+
+    return actionable
+
+
 def check_line_counts(project_dir: Path) -> list[str]:
     """Check all CLAUDE.md files for line count and structure issues."""
     issues = []
@@ -204,12 +267,25 @@ def main():
     issues.extend(check_line_counts(project_path))
     issues.extend(check_missing_claude_md(project_path))
 
+    # Detect which directories have working tree changes
+    changed_dirs = get_changed_directories(project_dir)
+    actionable_dirs = dirs_needing_doc_update(project_path, changed_dirs)
+
     # Output recommendations via additionalContext
-    if issues:
-        header = "🛡️ **CLAUDE.md Guardian** — issues detected:"
-        body = "\n".join(f"  {issue}" for issue in issues)
-        action_hint = "\n\n👉 Run `/update-claude-md` to fix these issues automatically."
-        msg = f"{header}\n{body}{action_hint}"
+    if issues or actionable_dirs:
+        parts = []
+
+        if issues:
+            header = "🛡️ **CLAUDE.md Guardian** — issues detected:"
+            body = "\n".join(f"  {issue}" for issue in issues)
+            parts.append(f"{header}\n{body}")
+
+        if actionable_dirs:
+            dir_list = ", ".join(f"`{d}`" for d in actionable_dirs)
+            parts.append(f"📂 Working tree changes in dirs relevant to CLAUDE.md: {dir_list}")
+
+        parts.append("👉 Run `/update-claude-md` to update affected CLAUDE.md files.")
+        msg = "\n\n".join(parts)
 
         output = {"additionalContext": msg}
         print(json.dumps(output))

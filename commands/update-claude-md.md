@@ -1,6 +1,6 @@
 ---
 description: "Update existing CLAUDE.md files — incremental by default, --full for full rescan"
-argument-hint: "[--full] [--dry-run]"
+argument-hint: "[--full] [--dry-run] [--since-commit N]"
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent, AskUserQuestion
 ---
 
@@ -15,8 +15,9 @@ All generated content must follow the standards defined in `.claude_personal/rul
 Parse `$ARGUMENTS` for flags:
 - `--full` — full rescan via project-scanner, compare and update all CLAUDE.md files
 - `--dry-run` — analyze and show what would change, but don't write any files
+- `--since-commit N` — use git commit history (`HEAD~N..HEAD`) instead of working tree diff
 
-Default (no flags): incremental update based on recent git changes.
+Default (no flags): incremental update based on **working tree changes** (staged + unstaged + untracked files).
 
 ## Step 2: Detect Git Repository & Scope Directories
 
@@ -31,13 +32,27 @@ Default (no flags): incremental update based on recent git changes.
 
 ### Incremental mode (default)
 
-1. Run `git diff --name-only HEAD~5..HEAD 2>/dev/null | sed 's|/.*||' | sort -u` to get directories with recent changes
-   - If HEAD~5 fails (fewer than 5 commits), fall back to `git diff --name-only HEAD~1..HEAD`
+1. Detect changed directories from the **working tree** (all uncommitted modifications):
+   ```bash
+   { git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard; } 2>/dev/null | sed 's|/.*||' | sort -u
+   ```
+   - `git diff --name-only` → unstaged modifications
+   - `git diff --cached --name-only` → staged changes
+   - `git ls-files --others --exclude-standard` → new untracked files
+2. If working tree is clean (no output), **fall back** to recent commits:
+   - `git diff --name-only HEAD~3..HEAD 2>/dev/null | sed 's|/.*||' | sort -u`
    - If that also fails, treat as full mode
-2. Store as `changed_dirs`
-3. Check for new git-tracked directories that don't have a CLAUDE.md yet:
+3. Store as `changed_dirs`
+4. Check for new git-tracked directories that don't have a CLAUDE.md yet:
    - Compare `git_tracked_dirs` against existing CLAUDE.md locations
    - Add any new directories to `changed_dirs`
+
+### `--since-commit N` mode
+
+Use git commit history instead of working tree:
+1. Run `git diff --name-only HEAD~N..HEAD 2>/dev/null | sed 's|/.*||' | sort -u`
+2. If HEAD~N fails, fall back to `git diff --name-only HEAD~1..HEAD`
+3. Store as `changed_dirs`
 
 ### Full mode (--full)
 
