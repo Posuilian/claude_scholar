@@ -208,7 +208,8 @@ def main():
     if issues:
         header = "🛡️ **CLAUDE.md Guardian** — issues detected:"
         body = "\n".join(f"  {issue}" for issue in issues)
-        msg = f"{header}\n{body}"
+        action_hint = "\n\n👉 Run `/update-claude-md` to fix these issues automatically."
+        msg = f"{header}\n{body}{action_hint}"
 
         output = {"additionalContext": msg}
         print(json.dumps(output))

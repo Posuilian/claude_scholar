@@ -54,55 +54,27 @@ Remember the user's choices for each file.
 
 ## Step 5: Generate CLAUDE.md Files
 
+All generated content must follow the standards defined in `.claude_personal/rules/claude-md-standards.md` (templates, line limits, coordination rules).
+
 ### 5a: Root CLAUDE.md (unless --subdirs-only)
 
-Using the scanner's findings, generate a root CLAUDE.md following the `claude-md-authoring` skill methodology. The file MUST:
-
-- Stay under 200 lines (target 120-180)
-- Include these sections in order:
-  1. **Project Overview** (5-10 lines) — project name, purpose, primary language/framework
-  2. **Quick Start** (10-20 lines) — exact install/build/test/run commands from scanner's `commands` field
-  3. **Architecture** (15-30 lines) — directory layout from scanner, key entry points, data flow
-  4. **Coding Standards** (10-20 lines) — detected conventions from scanner's `coding_conventions`
-  5. **Key Patterns** (10-30 lines) — wrapped in `<important>` tags, only genuinely critical rules
-  6. **Common Tasks** (10-20 lines) — exact copy-pasteable command invocations
-
-- If the project has subdirectories with their own CLAUDE.md, add a brief "Subdirectory Guide" section listing them
+Using the scanner's findings, generate a root CLAUDE.md following the Root Template (6 sections) from the standards. Populate each section with data from the scanner's JSON output (commands, directory_layout, coding_conventions, etc.).
 
 Write the file using the Write tool.
 
 ### 5b: Subdirectory CLAUDE.md Files (unless --root-only)
 
-For each subdirectory in scanner's `subdirectories_needing_claude_md`, generate a focused CLAUDE.md:
-
-- Stay under 120 lines (target 60-100)
-- Include these sections:
-  1. **Purpose** (3-5 lines) — role in the larger system
-  2. **Quick Commands** (5-10 lines) — only commands that differ from root
-  3. **Key Files** (5-15 lines) — most important files and their roles
-  4. **Patterns** (5-15 lines) — wrapped in `<important>` for component-specific rules
-  5. **Dependencies** (3-5 lines) — upstream/downstream components
-
-- Do NOT duplicate content from the root CLAUDE.md — reference it instead
+For each subdirectory in scanner's `subdirectories_needing_claude_md`, generate a focused CLAUDE.md following the Subdirectory Template (5 sections) from the standards.
 
 Write each file using the Write tool.
 
 ### 5c: Handle Overflow
 
-After generating each file, count its lines. If any CLAUDE.md exceeds 200 lines:
+After generating each file, count its lines. If any CLAUDE.md exceeds 200 lines, apply the Overflow Strategy from the standards:
 
-1. Identify the least critical sections (usually detailed patterns or exhaustive file listings)
-2. Extract them to `.claude/rules/{component-name}.md` with appropriate glob frontmatter:
-
-```markdown
----
-globs: ["path/to/component/**/*"]
-description: "Detailed patterns for {component}"
----
-[Extracted content]
-```
-
-3. Replace the extracted content in CLAUDE.md with a one-line reference: "See `.claude/rules/{name}.md` for detailed patterns."
+1. Identify the least critical sections
+2. Extract them to `.claude/rules/{component-name}.md` with appropriate glob frontmatter (see Overflow Strategy in standards)
+3. Replace the extracted content in CLAUDE.md with a one-line reference
 
 ## Step 6: Dry-Run Output (if --dry-run)
 
