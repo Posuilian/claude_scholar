@@ -17,17 +17,32 @@ Parse `$ARGUMENTS` for flags:
 
 Default (no flags): create both root and subdirectory CLAUDE.md files.
 
-## Step 2: Scan Project Structure
+## Step 2: Detect Git Repository & Scope Directories
 
-Launch the `project-scanner` agent to analyze the project:
+Before scanning, check if the current directory is a git repository to limit the scan scope:
+
+1. Run `git rev-parse --is-inside-work-tree 2>/dev/null` to check if inside a git repo
+2. If **yes** (exit code 0):
+   - Run `git ls-files | sed 's|/.*||' | sort -u` to get all top-level directories containing git-tracked files
+   - Store the result as `git_tracked_dirs`
+   - This list will be passed to the project-scanner agent to restrict its scan scope
+3. If **no** (not a git repo):
+   - Set `git_tracked_dirs` to empty — no restriction applied, scan all directories
+
+## Step 3: Scan Project Structure
+
+Launch the `project-scanner` agent to analyze the project. If `git_tracked_dirs` is non-empty, include it in the prompt to restrict the scan scope:
 
 ```
-Agent(subagent_type="project-scanner", description="Analyze project structure for CLAUDE.md generation", prompt="Scan the current project directory thoroughly. Detect project type, languages, frameworks, build commands, coding conventions, and identify which subdirectories need their own CLAUDE.md. Return your findings as structured JSON. Be thorough but efficient — sample files instead of reading everything.")
+Agent(subagent_type="project-scanner", description="Analyze project structure for CLAUDE.md generation", prompt="Scan the current project directory thoroughly. Detect project type, languages, frameworks, build commands, coding conventions, and identify which subdirectories need their own CLAUDE.md. Return your findings as structured JSON. Be thorough but efficient — sample files instead of reading everything.
+
+[If git_tracked_dirs is non-empty, append:]
+IMPORTANT — Git-scoped scan: This is a git repository. ONLY scan the following top-level directories (ignore all others): {git_tracked_dirs}")
 ```
 
 Wait for the agent to complete and parse the returned JSON findings.
 
-## Step 3: Handle Existing Files
+## Step 4: Handle Existing Files
 
 Check the scanner's `existing_claude_md` results. For each existing CLAUDE.md file that would be overwritten:
 
@@ -37,9 +52,9 @@ Use AskUserQuestion to ask:
 
 Remember the user's choices for each file.
 
-## Step 4: Generate CLAUDE.md Files
+## Step 5: Generate CLAUDE.md Files
 
-### 4a: Root CLAUDE.md (unless --subdirs-only)
+### 5a: Root CLAUDE.md (unless --subdirs-only)
 
 Using the scanner's findings, generate a root CLAUDE.md following the `claude-md-authoring` skill methodology. The file MUST:
 
@@ -56,7 +71,7 @@ Using the scanner's findings, generate a root CLAUDE.md following the `claude-md
 
 Write the file using the Write tool.
 
-### 4b: Subdirectory CLAUDE.md Files (unless --root-only)
+### 5b: Subdirectory CLAUDE.md Files (unless --root-only)
 
 For each subdirectory in scanner's `subdirectories_needing_claude_md`, generate a focused CLAUDE.md:
 
@@ -72,7 +87,7 @@ For each subdirectory in scanner's `subdirectories_needing_claude_md`, generate 
 
 Write each file using the Write tool.
 
-### 4c: Handle Overflow
+### 5c: Handle Overflow
 
 After generating each file, count its lines. If any CLAUDE.md exceeds 200 lines:
 
@@ -89,7 +104,7 @@ description: "Detailed patterns for {component}"
 
 3. Replace the extracted content in CLAUDE.md with a one-line reference: "See `.claude/rules/{name}.md` for detailed patterns."
 
-## Step 5: Dry-Run Output (if --dry-run)
+## Step 6: Dry-Run Output (if --dry-run)
 
 If `--dry-run` was specified, instead of writing files, present the plan as a table:
 
@@ -103,7 +118,7 @@ If `--dry-run` was specified, instead of writing files, present the plan as a ta
 
 Then show a preview of the root CLAUDE.md content and ask if the user wants to proceed.
 
-## Step 6: Summary
+## Step 7: Summary
 
 After writing all files, present a summary table:
 

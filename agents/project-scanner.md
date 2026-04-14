@@ -19,8 +19,9 @@ You are a project structure analyst. Your job is to deeply understand a codebase
 
 ## Phase 1 — Top-Level Scan (2-3 turns)
 
-1. `Glob("*")` to list root contents
-2. Look for build manifests:
+1. If the caller indicates this is a git repository and provides a `git_tracked_dirs` list, use `git ls-files` for file discovery instead of Glob where appropriate, to avoid scanning untracked paths.
+2. `Glob("*")` to list root contents
+3. Look for build manifests:
    - `package.json`, `tsconfig.json` → Node/TypeScript
    - `pyproject.toml`, `setup.py`, `setup.cfg`, `requirements.txt` → Python
    - `Cargo.toml` → Rust
@@ -29,15 +30,17 @@ You are a project structure analyst. Your job is to deeply understand a codebase
    - `Makefile`, `CMakeLists.txt` → C/C++
    - `Gemfile` → Ruby
    - `composer.json` → PHP
-3. Read root build manifests to detect:
+4. Read root build manifests to detect:
    - Project name and description
    - Dependencies and frameworks (React, FastAPI, Express, Django, etc.)
    - Scripts/commands (test, build, lint, start)
-4. Check for monorepo markers: `lerna.json`, `pnpm-workspace.yaml`, `nx.json`, `turbo.json`, `rush.json`, Cargo workspace members, Go workspace
+5. Check for monorepo markers: `lerna.json`, `pnpm-workspace.yaml`, `nx.json`, `turbo.json`, `rush.json`, Cargo workspace members, Go workspace
 
 ## Phase 2 — Directory Analysis (3-5 turns)
 
-1. `Glob("*/")` for top-level directories
+**Git-scoped scanning**: If the caller provides a `git_tracked_dirs` list, restrict ALL directory scanning to only those directories. Skip any top-level directory not in the list. This applies to both `Glob("*/")` results and monorepo pattern checks below.
+
+1. `Glob("*/")` for top-level directories (filter by `git_tracked_dirs` if provided)
 2. For monorepo patterns, also check: `packages/*/`, `apps/*/`, `services/*/`, `crates/*/`, `libs/*/`, `modules/*/`
 3. For each candidate directory, determine if it needs its own CLAUDE.md:
    - **YES if**: has its own build manifest (package.json, Cargo.toml, etc.)
