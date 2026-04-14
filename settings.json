@@ -1,0 +1,19 @@
+{
+    "plansDirectory": "./reports",
+    "hooks": {
+        "Stop": [
+            {
+                "matcher": "",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 .claude/hooks/scripts/claude-md-guardian.py",
+                        "timeout": 3000,
+                        "async": true,
+                        "statusMessage": "CLAUDE.md Guardian"
+                    }
+                ]
+            }
+        ]
+    }
+}

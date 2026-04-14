@@ -1,0 +1,130 @@
+---
+description: "Enhanced init — create CLAUDE.md for project root and key subdirectories"
+argument-hint: "[--dry-run] [--root-only] [--subdirs-only]"
+allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent, AskUserQuestion
+---
+
+# /init-pro — Enhanced Project Initialization
+
+Create well-structured CLAUDE.md files for the project root AND key subdirectories. This is an enhanced version of the built-in `/init` that understands monorepos, multi-module projects, and the 200-line best practice.
+
+## Step 1: Parse Arguments
+
+Parse `$ARGUMENTS` for flags:
+- `--dry-run` — analyze and show plan, but don't write any files
+- `--root-only` — only create/update the root CLAUDE.md
+- `--subdirs-only` — only create/update subdirectory CLAUDE.md files (assumes root already exists)
+
+Default (no flags): create both root and subdirectory CLAUDE.md files.
+
+## Step 2: Scan Project Structure
+
+Launch the `project-scanner` agent to analyze the project:
+
+```
+Agent(subagent_type="project-scanner", description="Analyze project structure for CLAUDE.md generation", prompt="Scan the current project directory thoroughly. Detect project type, languages, frameworks, build commands, coding conventions, and identify which subdirectories need their own CLAUDE.md. Return your findings as structured JSON. Be thorough but efficient — sample files instead of reading everything.")
+```
+
+Wait for the agent to complete and parse the returned JSON findings.
+
+## Step 3: Handle Existing Files
+
+Check the scanner's `existing_claude_md` results. For each existing CLAUDE.md file that would be overwritten:
+
+Use AskUserQuestion to ask:
+- Question: "[path]/CLAUDE.md already exists ({line_count} lines, {health}). What should I do?"
+- Options: "Overwrite — replace with newly generated content" / "Merge — keep existing content and add missing sections" / "Skip — leave this file unchanged"
+
+Remember the user's choices for each file.
+
+## Step 4: Generate CLAUDE.md Files
+
+### 4a: Root CLAUDE.md (unless --subdirs-only)
+
+Using the scanner's findings, generate a root CLAUDE.md following the `claude-md-authoring` skill methodology. The file MUST:
+
+- Stay under 200 lines (target 120-180)
+- Include these sections in order:
+  1. **Project Overview** (5-10 lines) — project name, purpose, primary language/framework
+  2. **Quick Start** (10-20 lines) — exact install/build/test/run commands from scanner's `commands` field
+  3. **Architecture** (15-30 lines) — directory layout from scanner, key entry points, data flow
+  4. **Coding Standards** (10-20 lines) — detected conventions from scanner's `coding_conventions`
+  5. **Key Patterns** (10-30 lines) — wrapped in `<important>` tags, only genuinely critical rules
+  6. **Common Tasks** (10-20 lines) — exact copy-pasteable command invocations
+
+- If the project has subdirectories with their own CLAUDE.md, add a brief "Subdirectory Guide" section listing them
+
+Write the file using the Write tool.
+
+### 4b: Subdirectory CLAUDE.md Files (unless --root-only)
+
+For each subdirectory in scanner's `subdirectories_needing_claude_md`, generate a focused CLAUDE.md:
+
+- Stay under 120 lines (target 60-100)
+- Include these sections:
+  1. **Purpose** (3-5 lines) — role in the larger system
+  2. **Quick Commands** (5-10 lines) — only commands that differ from root
+  3. **Key Files** (5-15 lines) — most important files and their roles
+  4. **Patterns** (5-15 lines) — wrapped in `<important>` for component-specific rules
+  5. **Dependencies** (3-5 lines) — upstream/downstream components
+
+- Do NOT duplicate content from the root CLAUDE.md — reference it instead
+
+Write each file using the Write tool.
+
+### 4c: Handle Overflow
+
+After generating each file, count its lines. If any CLAUDE.md exceeds 200 lines:
+
+1. Identify the least critical sections (usually detailed patterns or exhaustive file listings)
+2. Extract them to `.claude/rules/{component-name}.md` with appropriate glob frontmatter:
+
+```markdown
+---
+globs: ["path/to/component/**/*"]
+description: "Detailed patterns for {component}"
+---
+[Extracted content]
+```
+
+3. Replace the extracted content in CLAUDE.md with a one-line reference: "See `.claude/rules/{name}.md` for detailed patterns."
+
+## Step 5: Dry-Run Output (if --dry-run)
+
+If `--dry-run` was specified, instead of writing files, present the plan as a table:
+
+```
+| File                        | Lines | Action   | Key Sections                    |
+|-----------------------------|-------|----------|---------------------------------|
+| CLAUDE.md                   | ~150  | Create   | Overview, Quick Start, Arch...  |
+| packages/api/CLAUDE.md      | ~85   | Create   | Purpose, Commands, Patterns...  |
+| packages/web/CLAUDE.md      | ~90   | Create   | Purpose, Commands, Patterns...  |
+```
+
+Then show a preview of the root CLAUDE.md content and ask if the user wants to proceed.
+
+## Step 6: Summary
+
+After writing all files, present a summary table:
+
+```
+🚀 /init-pro complete!
+
+| File                        | Lines | Status    |
+|-----------------------------|-------|-----------|
+| CLAUDE.md                   | 142   | ✅ Created |
+| packages/api/CLAUDE.md      | 87    | ✅ Created |
+| packages/web/CLAUDE.md      | 93    | ✅ Created |
+| .claude/rules/api-rules.md  | 45    | ✅ Created (overflow) |
+
+All files are under the 200-line limit.
+Run /init-pro --dry-run anytime to check the current state.
+```
+
+## Critical Requirements
+
+1. **Use Agent tool for scanner** — DO NOT use bash commands to analyze the project yourself. The project-scanner agent is designed for this.
+2. **Respect the 200-line limit** — This is non-negotiable. Count lines before writing.
+3. **Detect, don't assume** — All content must come from scanner analysis, not assumptions about what the project might contain.
+4. **Ask before overwriting** — Always ask user permission before replacing existing CLAUDE.md files.
+5. **Copy-pasteable commands** — Every command in Quick Start / Common Tasks must work when copy-pasted into a terminal.
