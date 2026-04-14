@@ -2,7 +2,7 @@
 name: project-scanner
 description: "Analyze project structure — detect languages, frameworks, build systems, and subdirectories needing CLAUDE.md. Use when /init-pro needs project analysis."
 tools: Read, Glob, Grep, Bash
-model: opus
+model: sonnet
 maxTurns: 20
 skills:
   - claude-md-authoring

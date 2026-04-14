@@ -2,7 +2,7 @@
 name: code-explorer
 description: Explore and understand codebases — trace data flow, find key implementations, compare with paper descriptions.
 tools: Read, Glob, Grep, Bash
-model: opus
+model: sonnet
 maxTurns: 15
 memory: user
 skills:
